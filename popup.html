@@ -63,12 +63,11 @@ function toInputDate(dateStr) {
 }
 
 function avatarHtml(m, size) {
-  var initials = m.fullName ? m.fullName.split(' ').map(function(n){ return n[0]; }).join('').substring(0,2) : '?';
-  var url = m.avatarUrl;
-  if (url && url.indexOf('http') === 0) {
-    return '<img src="' + url + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;" title="' + m.fullName + '" onerror="this.style.display=\'none\'">';
-  }
-  return '<div class="av" style="width:' + size + 'px;height:' + size + 'px;background:#5aac44;color:white;font-size:' + Math.floor(size*0.4) + 'px;border-radius:50%;display:flex;align-items:center;justify-content:center;">' + initials + '</div>';
+  var initials = m.fullName ? m.fullName.split(' ').map(function(n){ return n[0]; }).join('').substring(0,2).toUpperCase() : '?';
+  var colors = ['#e53935','#8e24aa','#1e88e5','#00897b','#f4511e','#6d4c41','#546e7a'];
+  var colorIndex = m.id ? m.id.charCodeAt(0) % colors.length : 0;
+  var bg = colors[colorIndex];
+  return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + bg + ';color:white;font-size:' + Math.floor(size*0.38) + 'px;display:inline-flex;align-items:center;justify-content:center;font-weight:bold;" title="' + (m.fullName||'') + '">' + initials + '</div>';
 }
 
 t.board('id').then(function(board) {
