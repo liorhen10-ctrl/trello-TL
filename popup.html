@@ -17,11 +17,17 @@
   .date-btn.ok { background: #43a047; }
   .date-btn.soon { background: #fb8c00; }
   .date-btn.nodate { background: #aaa; }
-  .avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; cursor: pointer; border: 2px solid transparent; }
-  .avatar.assigned { border-color: #5aac44; }
-  .avatar-initials { width: 24px; height: 24px; border-radius: 50%; background: #aaa; color: white; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border: 2px solid transparent; flex-shrink: 0; }
-  .avatar-initials.assigned { border-color: #5aac44; background: #5aac44; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; cursor: pointer; border: 2px solid #5aac44; }
+  .avatar-initials { width: 26px; height: 26px; border-radius: 50%; background: #5aac44; color: white; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border: 2px solid #5aac44; flex-shrink: 0; }
+  .assign-btn { width: 26px; height: 26px; border-radius: 50%; background: #ddd; color: #666; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; flex-shrink: 0; }
   .date-input { font-size: 12px; border: 1px solid #ddd; border-radius: 3px; padding: 2px 5px; margin-top: 4px; }
+  .assign-panel { display: none; margin-top: 6px; background: #f4f5f7; border-radius: 4px; padding: 6px; }
+  .assign-panel-member { display: flex; align-items: center; gap: 8px; padding: 4px; cursor: pointer; border-radius: 3px; font-size: 12px; }
+  .assign-panel-member:hover { background: #e0e0e0; }
+  .assign-panel-member img, .assign-panel-member .av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+  .assign-panel-member .av { background: #aaa; color: white; font-size: 9px; display: flex; align-items: center; justify-content: center; }
+  .assign-panel-member.active { background: #e3f2e1; }
+  .checkmark { margin-right: auto; color: #5aac44; font-weight: bold; }
   #loading { text-align: center; color: #888; padding: 20px; }
   #error { color: red; padding: 10px; font-size: 13px; }
 </style>
@@ -53,9 +59,13 @@ function formatDate(dateStr) {
 function toInputDate(dateStr) {
   if (!dateStr) return '';
   var d = new Date(dateStr);
-  var m = ('0'+(d.getMonth()+1)).slice(-2);
-  var day = ('0'+d.getDate()).slice(-2);
-  return d.getFullYear() + '-' + m + '-' + day;
+  return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+}
+
+function avatarHtml(m, size) {
+  var initials = m.fullName ? m.fullName.split(' ').map(function(n){ return n[0]; }).join('').substring(0,2) : '?';
+  if (m.avatarUrl) return '<img src="' + m.avatarUrl + '/' + size + '.png" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;" title="' + m.fullName + '">';
+  return '<div class="av" style="width:' + size + 'px;height:' + size + 'px;background:#5aac44;color:white;font-size:' + Math.floor(size*0.4) + 'px;border-radius:50%;display:flex;align-items:center;justify-content:center;">' + initials + '</div>';
 }
 
 t.board('id').then(function(board) {
@@ -108,70 +118,128 @@ t.board('id').then(function(board) {
       var div = document.createElement('div');
       div.className = 'item';
       var checked = item.state === 'complete';
-
-      // תאריך
       var dateInfo = formatDate(item.due);
       var dateBtnHtml = dateInfo
-        ? '<button class="date-btn ' + dateInfo.cls + '" data-id="' + item.id + '" data-checklist="' + item.checklistId + '">' + dateInfo.label + '</button>'
-        : '<button class="date-btn nodate" data-id="' + item.id + '" data-checklist="' + item.checklistId + '">+ תאריך</button>';
+        ? '<button class="date-btn ' + dateInfo.cls + ' js-date-btn">' + dateInfo.label + '</button>'
+        : '<button class="date-btn nodate js-date-btn">+ תאריך</button>';
 
-      // אווטרים
-      var avatarsHtml = membersArr.map(function(m) {
-        var isAssigned = item.assignedIds.indexOf(m.id) !== -1;
-        var initials = m.fullName ? m.fullName.split(' ').map(function(n){ return n[0]; }).join('').substring(0,2) : '?';
-        if (m.avatarUrl) {
-          return '<img class="avatar' + (isAssigned ? ' assigned' : '') + '" src="' + m.avatarUrl + '/30.png" title="' + m.fullName + '" data-member="' + m.id + '" data-item="' + item.id + '" data-checklist="' + item.checklistId + '" data-assigned="' + isAssigned + '">';
-        }
-        return '<div class="avatar-initials' + (isAssigned ? ' assigned' : '') + '" title="' + m.fullName + '" data-member="' + m.id + '" data-item="' + item.id + '" data-checklist="' + item.checklistId + '" data-assigned="' + isAssigned + '">' + initials + '</div>';
+      // רק מוקצים
+      var assignedHtml = item.assignedIds.map(function(mid) {
+        var m = membersMap[mid];
+        if (!m) return '';
+        return '<span class="js-avatar-wrap">' + avatarHtml(m, 26) + '</span>';
       }).join('');
+      if (!assignedHtml) assignedHtml = '';
+
+      // פאנל הקצאה
+      var panelHtml = '<div class="assign-panel js-assign-panel">' +
+        membersArr.map(function(m) {
+          var isAssigned = item.assignedIds.indexOf(m.id) !== -1;
+          return '<div class="assign-panel-member' + (isAssigned ? ' active' : '') + '" data-member="' + m.id + '">' +
+            avatarHtml(m, 22) +
+            '<span>' + m.fullName + '</span>' +
+            (isAssigned ? '<span class="checkmark">✓</span>' : '') +
+          '</div>';
+        }).join('') +
+      '</div>';
 
       div.innerHTML =
         '<div class="item-top">' +
-          '<input type="checkbox" ' + (checked ? 'checked' : '') + ' data-id="' + item.id + '" data-checklist="' + item.checklistId + '">' +
+          '<input type="checkbox" class="js-check" ' + (checked ? 'checked' : '') + ' data-id="' + item.id + '" data-checklist="' + item.checklistId + '">' +
           '<div class="item-content">' +
             '<div class="item-name' + (checked ? ' done' : '') + '">' + item.name + '</div>' +
             '<div class="item-card">📋 ' + item.cardName + '</div>' +
-            '<div class="item-meta">' + dateBtnHtml + avatarsHtml + '</div>' +
-            '<div class="date-picker" style="display:none"><input type="date" class="date-input" value="' + toInputDate(item.due) + '" data-id="' + item.id + '" data-checklist="' + item.checklistId + '"></div>' +
+            '<div class="item-meta">' +
+              dateBtnHtml +
+              '<span class="js-avatars" style="display:flex;gap:4px;">' + assignedHtml + '</span>' +
+              '<button class="assign-btn js-assign-btn" title="שנה הקצאה">+</button>' +
+            '</div>' +
+            '<div class="date-picker" style="display:none"><input type="date" class="date-input js-date-input" value="' + toInputDate(item.due) + '" data-id="' + item.id + '" data-checklist="' + item.checklistId + '"></div>' +
+            panelHtml +
           '</div>' +
         '</div>';
+
+      // שמור מצב הקצאה
+      div._assignedIds = item.assignedIds.slice();
+      div._itemId = item.id;
+      div._checklistId = item.checklistId;
+      div._membersArr = membersArr;
+      div._membersMap = membersMap;
 
       container.appendChild(div);
     });
 
-    // לחיצה על תאריך — פתח/סגור בורר
+    // אירועים
     container.addEventListener('click', function(e) {
-      if (e.target.classList.contains('date-btn')) {
-        var picker = e.target.closest('.item-content').querySelector('.date-picker');
+      // תאריך
+      var dateBtn = e.target.closest('.js-date-btn');
+      if (dateBtn) {
+        var picker = dateBtn.closest('.item-content').querySelector('.date-picker');
         picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+        return;
       }
 
-      // לחיצה על אווטר — הקצה/הסר
-      if (e.target.classList.contains('avatar') || e.target.classList.contains('avatar-initials')) {
-        var el = e.target;
-        var memberId = el.getAttribute('data-member');
-        var itemId = el.getAttribute('data-item');
-        var checklistId = el.getAttribute('data-checklist');
-        var isAssigned = el.getAttribute('data-assigned') === 'true';
-        var method = isAssigned ? 'DELETE' : 'POST';
-        var url = isAssigned
-          ? BASE + '/card/checkItem/' + itemId + '/idMembers/' + memberId + AUTH
-          : BASE + '/card/checkItem/' + itemId + '/idMembers' + AUTH;
+      // כפתור הקצאה
+      var assignBtn = e.target.closest('.js-assign-btn');
+      if (assignBtn) {
+        var panel = assignBtn.closest('.item-content').querySelector('.js-assign-panel');
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        return;
+      }
 
-        fetch(BASE + '/checklists/' + checklistId + '/checkItems/' + itemId + (isAssigned ? '/idMembers/' + memberId : '/idMembers') + AUTH, {
-          method: method,
-          headers: { 'Content-Type': 'application/json' },
-          body: isAssigned ? null : JSON.stringify({ value: memberId })
-        }).then(function() {
-          el.classList.toggle('assigned');
-          el.setAttribute('data-assigned', !isAssigned);
-        });
+      // בחירת חבר בפאנל
+      var memberRow = e.target.closest('.assign-panel-member');
+      if (memberRow) {
+        var itemDiv = memberRow.closest('.item');
+        var memberId = memberRow.getAttribute('data-member');
+        var itemId = itemDiv._itemId;
+        var checklistId = itemDiv._checklistId;
+        var assignedIds = itemDiv._assignedIds;
+        var isAssigned = assignedIds.indexOf(memberId) !== -1;
+
+        var url, method, body;
+        if (isAssigned) {
+          url = BASE + '/checklists/' + checklistId + '/checkItems/' + itemId + '/idMembers/' + memberId + AUTH;
+          method = 'DELETE';
+          body = null;
+        } else {
+          url = BASE + '/checklists/' + checklistId + '/checkItems/' + itemId + '/idMembers' + AUTH;
+          method = 'POST';
+          body = JSON.stringify({ value: memberId });
+        }
+
+        fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: body })
+          .then(function() {
+            if (isAssigned) {
+              itemDiv._assignedIds = assignedIds.filter(function(id){ return id !== memberId; });
+              memberRow.classList.remove('active');
+              var ck = memberRow.querySelector('.checkmark');
+              if (ck) ck.remove();
+            } else {
+              itemDiv._assignedIds.push(memberId);
+              memberRow.classList.add('active');
+              if (!memberRow.querySelector('.checkmark')) {
+                var span = document.createElement('span');
+                span.className = 'checkmark';
+                span.textContent = '✓';
+                memberRow.appendChild(span);
+              }
+            }
+            // עדכן אווטרים
+            var avatarsWrap = itemDiv.querySelector('.js-avatars');
+            avatarsWrap.innerHTML = itemDiv._assignedIds.map(function(mid) {
+              var m = itemDiv._membersMap[mid];
+              if (!m) return '';
+              return '<span class="js-avatar-wrap">' + avatarHtml(m, 26) + '</span>';
+            }).join('');
+          });
+        return;
       }
     });
 
     // שינוי תאריך
     container.addEventListener('change', function(e) {
-      if (e.target.classList.contains('date-input')) {
+      if (e.target.classList.contains('js-date-input')) {
         var itemId = e.target.getAttribute('data-id');
         var checklistId = e.target.getAttribute('data-checklist');
         var newDate = e.target.value ? new Date(e.target.value).toISOString() : null;
@@ -180,14 +248,14 @@ t.board('id').then(function(board) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ due: newDate })
         }).then(function() {
-          var btn = e.target.closest('.item-content').querySelector('.date-btn');
+          var btn = e.target.closest('.item-content').querySelector('.js-date-btn');
           if (newDate) {
             var info = formatDate(newDate);
             btn.textContent = info.label;
-            btn.className = 'date-btn ' + info.cls;
+            btn.className = 'date-btn ' + info.cls + ' js-date-btn';
           } else {
             btn.textContent = '+ תאריך';
-            btn.className = 'date-btn nodate';
+            btn.className = 'date-btn nodate js-date-btn';
           }
           e.target.closest('.date-picker').style.display = 'none';
         });
