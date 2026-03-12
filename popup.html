@@ -5,21 +5,25 @@
 <style>
   body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #f4f5f7; direction: rtl; }
   h2 { font-size: 14px; color: #172b4d; margin-bottom: 10px; }
-  .item { background: white; border-radius: 4px; padding: 8px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-  .item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+  .item { background: white; border-radius: 4px; padding: 8px 12px; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .item-top { display: flex; align-items: flex-start; gap: 10px; }
+  .item-top input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; margin-top: 2px; }
   .item-content { flex: 1; }
   .item-name { font-size: 13px; color: #172b4d; }
   .item-name.done { text-decoration: line-through; color: #aaa; }
-  .item-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
-  .item-card { font-size: 11px; color: #888; }
-  .item-date { font-size: 11px; color: white; background: #e53935; border-radius: 3px; padding: 1px 5px; }
-  .item-date.ok { background: #43a047; }
-  .item-date.soon { background: #fb8c00; }
-  .avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
-  .avatar-initials { width: 24px; height: 24px; border-radius: 50%; background: #5aac44; color: white; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+  .item-card { font-size: 11px; color: #888; margin-top: 2px; }
+  .item-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+  .date-btn { font-size: 11px; color: white; background: #e53935; border-radius: 3px; padding: 2px 7px; cursor: pointer; border: none; }
+  .date-btn.ok { background: #43a047; }
+  .date-btn.soon { background: #fb8c00; }
+  .date-btn.nodate { background: #aaa; }
+  .avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; cursor: pointer; border: 2px solid transparent; }
+  .avatar.assigned { border-color: #5aac44; }
+  .avatar-initials { width: 24px; height: 24px; border-radius: 50%; background: #aaa; color: white; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border: 2px solid transparent; flex-shrink: 0; }
+  .avatar-initials.assigned { border-color: #5aac44; background: #5aac44; }
+  .date-input { font-size: 12px; border: 1px solid #ddd; border-radius: 3px; padding: 2px 5px; margin-top: 4px; }
   #loading { text-align: center; color: #888; padding: 20px; }
   #error { color: red; padding: 10px; font-size: 13px; }
-  .no-date { color: #aaa; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -31,42 +35,35 @@
 <script>
 var API_KEY = '5296f715fb6ead2ce2a404d6c2e83116';
 var API_TOKEN = 'ATTA1b25cac8d7fe08f3dfb04a9202d35bdd2aa980af9f6f0ca97add86d66ad26768F29908D5';
+var BASE = 'https://api.trello.com/1';
+var AUTH = '?key=' + API_KEY + '&token=' + API_TOKEN;
 
-var t = TrelloPowerUp.iframe({
-  appKey: API_KEY,
-  appName: 'TL'
-});
+var t = TrelloPowerUp.iframe({ appKey: API_KEY, appName: 'TL' });
 
 function formatDate(dateStr) {
   if (!dateStr) return null;
   var d = new Date(dateStr);
-  var now = new Date();
-  var diff = (d - now) / (1000 * 60 * 60 * 24);
-  var day = d.getDate();
-  var month = d.getMonth() + 1;
-  var year = d.getFullYear();
-  var label = day + '/' + month + '/' + year;
-  var cls = diff < 0 ? 'item-date' : diff < 3 ? 'item-date soon' : 'item-date ok';
-  return '<span class="' + cls + '">' + label + '</span>';
+  var diff = (d - new Date()) / (1000 * 60 * 60 * 24);
+  return {
+    label: d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear(),
+    cls: diff < 0 ? '' : diff < 3 ? 'soon' : 'ok'
+  };
 }
 
-function getMemberHtml(member) {
-  if (!member) return '';
-  if (member.avatarUrl) {
-    return '<img class="avatar" src="' + member.avatarUrl + '/30.png" title="' + member.fullName + '">';
-  }
-  var initials = member.fullName ? member.fullName.split(' ').map(function(n){ return n[0]; }).join('').substring(0,2) : '?';
-  return '<div class="avatar-initials" title="' + (member.fullName||'') + '">' + initials + '</div>';
+function toInputDate(dateStr) {
+  if (!dateStr) return '';
+  var d = new Date(dateStr);
+  var m = ('0'+(d.getMonth()+1)).slice(-2);
+  var day = ('0'+d.getDate()).slice(-2);
+  return d.getFullYear() + '-' + m + '-' + day;
 }
 
 t.board('id').then(function(board) {
   var boardId = board.id;
-  var base = 'https://api.trello.com/1';
-  var auth = '&key=' + API_KEY + '&token=' + API_TOKEN;
 
   Promise.all([
-    fetch(base + '/boards/' + boardId + '/cards?checklists=all&fields=name&key=' + API_KEY + '&token=' + API_TOKEN).then(function(r){ return r.json(); }),
-    fetch(base + '/boards/' + boardId + '/members?fields=fullName,avatarUrl,username&key=' + API_KEY + '&token=' + API_TOKEN).then(function(r){ return r.json(); })
+    fetch(BASE + '/boards/' + boardId + '/cards' + AUTH + '&checklists=all&fields=name').then(function(r){ return r.json(); }),
+    fetch(BASE + '/boards/' + boardId + '/members' + AUTH + '&fields=fullName,avatarUrl,username').then(function(r){ return r.json(); })
   ]).then(function(results) {
     var cards = results[0];
     var membersArr = results[1];
@@ -80,18 +77,18 @@ t.board('id').then(function(board) {
           cl.checkItems.forEach(function(item) {
             allItems.push({
               id: item.id,
+              checklistId: cl.id,
               name: item.name,
               state: item.state,
               cardName: card.name,
               due: item.due || null,
-              members: (item.idMembers || []).map(function(mid){ return membersMap[mid]; }).filter(Boolean)
+              assignedIds: item.idMembers || []
             });
           });
         });
       }
     });
 
-    // סידור כרונולוגי
     allItems.sort(function(a, b) {
       if (!a.due && !b.due) return 0;
       if (!a.due) return 1;
@@ -111,22 +108,92 @@ t.board('id').then(function(board) {
       var div = document.createElement('div');
       div.className = 'item';
       var checked = item.state === 'complete';
-      var dateHtml = item.due ? formatDate(item.due) : '<span class="no-date">ללא תאריך</span>';
-      var membersHtml = item.members.map(getMemberHtml).join('');
+
+      // תאריך
+      var dateInfo = formatDate(item.due);
+      var dateBtnHtml = dateInfo
+        ? '<button class="date-btn ' + dateInfo.cls + '" data-id="' + item.id + '" data-checklist="' + item.checklistId + '">' + dateInfo.label + '</button>'
+        : '<button class="date-btn nodate" data-id="' + item.id + '" data-checklist="' + item.checklistId + '">+ תאריך</button>';
+
+      // אווטרים
+      var avatarsHtml = membersArr.map(function(m) {
+        var isAssigned = item.assignedIds.indexOf(m.id) !== -1;
+        var initials = m.fullName ? m.fullName.split(' ').map(function(n){ return n[0]; }).join('').substring(0,2) : '?';
+        if (m.avatarUrl) {
+          return '<img class="avatar' + (isAssigned ? ' assigned' : '') + '" src="' + m.avatarUrl + '/30.png" title="' + m.fullName + '" data-member="' + m.id + '" data-item="' + item.id + '" data-checklist="' + item.checklistId + '" data-assigned="' + isAssigned + '">';
+        }
+        return '<div class="avatar-initials' + (isAssigned ? ' assigned' : '') + '" title="' + m.fullName + '" data-member="' + m.id + '" data-item="' + item.id + '" data-checklist="' + item.checklistId + '" data-assigned="' + isAssigned + '">' + initials + '</div>';
+      }).join('');
 
       div.innerHTML =
-        '<input type="checkbox" ' + (checked ? 'checked' : '') + '>' +
-        '<div class="item-content">' +
-          '<div class="item-name' + (checked ? ' done' : '') + '">' + item.name + '</div>' +
-          '<div class="item-meta">' +
-            '<span class="item-card">📋 ' + item.cardName + '</span>' +
-            dateHtml +
-            membersHtml +
+        '<div class="item-top">' +
+          '<input type="checkbox" ' + (checked ? 'checked' : '') + ' data-id="' + item.id + '" data-checklist="' + item.checklistId + '">' +
+          '<div class="item-content">' +
+            '<div class="item-name' + (checked ? ' done' : '') + '">' + item.name + '</div>' +
+            '<div class="item-card">📋 ' + item.cardName + '</div>' +
+            '<div class="item-meta">' + dateBtnHtml + avatarsHtml + '</div>' +
+            '<div class="date-picker" style="display:none"><input type="date" class="date-input" value="' + toInputDate(item.due) + '" data-id="' + item.id + '" data-checklist="' + item.checklistId + '"></div>' +
           '</div>' +
         '</div>';
 
       container.appendChild(div);
     });
+
+    // לחיצה על תאריך — פתח/סגור בורר
+    container.addEventListener('click', function(e) {
+      if (e.target.classList.contains('date-btn')) {
+        var picker = e.target.closest('.item-content').querySelector('.date-picker');
+        picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+      }
+
+      // לחיצה על אווטר — הקצה/הסר
+      if (e.target.classList.contains('avatar') || e.target.classList.contains('avatar-initials')) {
+        var el = e.target;
+        var memberId = el.getAttribute('data-member');
+        var itemId = el.getAttribute('data-item');
+        var checklistId = el.getAttribute('data-checklist');
+        var isAssigned = el.getAttribute('data-assigned') === 'true';
+        var method = isAssigned ? 'DELETE' : 'POST';
+        var url = isAssigned
+          ? BASE + '/card/checkItem/' + itemId + '/idMembers/' + memberId + AUTH
+          : BASE + '/card/checkItem/' + itemId + '/idMembers' + AUTH;
+
+        fetch(BASE + '/checklists/' + checklistId + '/checkItems/' + itemId + (isAssigned ? '/idMembers/' + memberId : '/idMembers') + AUTH, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: isAssigned ? null : JSON.stringify({ value: memberId })
+        }).then(function() {
+          el.classList.toggle('assigned');
+          el.setAttribute('data-assigned', !isAssigned);
+        });
+      }
+    });
+
+    // שינוי תאריך
+    container.addEventListener('change', function(e) {
+      if (e.target.classList.contains('date-input')) {
+        var itemId = e.target.getAttribute('data-id');
+        var checklistId = e.target.getAttribute('data-checklist');
+        var newDate = e.target.value ? new Date(e.target.value).toISOString() : null;
+        fetch(BASE + '/checklists/' + checklistId + '/checkItems/' + itemId + AUTH, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ due: newDate })
+        }).then(function() {
+          var btn = e.target.closest('.item-content').querySelector('.date-btn');
+          if (newDate) {
+            var info = formatDate(newDate);
+            btn.textContent = info.label;
+            btn.className = 'date-btn ' + info.cls;
+          } else {
+            btn.textContent = '+ תאריך';
+            btn.className = 'date-btn nodate';
+          }
+          e.target.closest('.date-picker').style.display = 'none';
+        });
+      }
+    });
+
   });
 }).catch(function(err) {
   document.getElementById('loading').style.display = 'none';
