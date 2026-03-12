@@ -94,7 +94,7 @@ t.board('id').then(function(board) {
               state: item.state,
               cardName: card.name,
               due: item.due || null,
-              assignedIds: item.idMembers || []
+              assignedIds: item.idMember ? [item.idMember] : (item.idMembers || [])
             });
           });
         });
