@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head><title>TL Power-Up</title></head>
+<body>
+<script>
+  var TrelloPowerUp = window.TrelloPowerUp;
+  TrelloPowerUp.initialize({
+    'board-buttons': function(t, options) {
+      return [{
+        text: 'TL',
+        callback: function(t) {
+          return t.popup({
+            title: 'משימות הבורד',
+            url: './popup.html',
+            height: 500
+          });
+        }
+      }];
+    }
+  });
+</script>
+</body>
+</html>
