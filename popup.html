@@ -64,7 +64,10 @@ function toInputDate(dateStr) {
 
 function avatarHtml(m, size) {
   var initials = m.fullName ? m.fullName.split(' ').map(function(n){ return n[0]; }).join('').substring(0,2) : '?';
-  if (m.avatarUrl) return '<img src="' + m.avatarUrl + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;" title="' + m.fullName + '">';
+  var url = m.avatarUrl;
+  if (url && url.indexOf('http') === 0) {
+    return '<img src="' + url + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;" title="' + m.fullName + '" onerror="this.style.display=\'none\'">';
+  }
   return '<div class="av" style="width:' + size + 'px;height:' + size + 'px;background:#5aac44;color:white;font-size:' + Math.floor(size*0.4) + 'px;border-radius:50%;display:flex;align-items:center;justify-content:center;">' + initials + '</div>';
 }
 
