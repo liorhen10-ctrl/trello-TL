@@ -21,7 +21,10 @@
 <div id="items"></div>
 <script src="https://p.trellocdn.com/power-up.min.js"></script>
 <script>
-var t = TrelloPowerUp.iframe();
+var t = TrelloPowerUp.iframe({
+  appKey: '5296f715fb6ead2ce2a404d6c2e83116',
+  appName: 'TL'
+});
 t.board('id').then(function(board) {
   var boardId = board.id;
   return t.getRestApi().getToken().then(function(token) {
