@@ -28,7 +28,7 @@ var t = TrelloPowerUp.iframe({
 
 t.board('id').then(function(board) {
   var boardId = board.id;
-  fetch('https://api.trello.com/1/boards/' + boardId + '/cards?checklists=all&fields=name&key=5296f715fb6ead2ce2a404d6c2e83116&token=YOUR_TOKEN')
+  fetch('https://api.trello.com/1/boards/' + boardId + '/cards?checklists=all&fields=name&key=5296f715fb6ead2ce2a404d6c2e83116&token=ATTA1b25cac8d7fe08f3dfb04a9202d35bdd2aa980af9f6f0ca97add86d66ad26768F29908D5')
     .then(function(res) { return res.json(); })
     .then(function(cards) {
       var allItems = [];
