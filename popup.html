@@ -1,23 +1,70 @@
 <!DOCTYPE html>
-<html>
-<head><title>TL Power-Up</title></head>
+<html dir="rtl">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #f4f5f7; }
+  h2 { font-size: 14px; color: #172b4d; margin-bottom: 10px; }
+  .item { background: white; border-radius: 4px; padding: 8px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+  .item label { font-size: 13px; color: #172b4d; cursor: pointer; flex: 1; }
+  .item label.done { text-decoration: line-through; color: #aaa; }
+  .card-name { font-size: 11px; color: #888; }
+  #loading { text-align: center; color: #888; padding: 20px; }
+  #error { color: red; padding: 10px; font-size: 13px; }
+</style>
+</head>
 <body>
+<h2>✅ כל המשימות בבורד</h2>
+<div id="loading">טוען משימות...</div>
+<div id="error"></div>
+<div id="items"></div>
 <script src="https://p.trellocdn.com/power-up.min.js"></script>
 <script>
-  TrelloPowerUp.initialize({
-    'board-buttons': function(t, options) {
-      return [{
-        text: 'TL',
-        callback: function(t) {
-          return t.popup({
-            title: 'משימות הבורד',
-            url: './popup.html',
-            height: 500
-          });
+var t = TrelloPowerUp.iframe();
+t.board('id').then(function(board) {
+  var boardId = board.id;
+  return t.getRestApi().getToken().then(function(token) {
+    return fetch('https://api.trello.com/1/boards/' + boardId + '/cards?checklists=all&fields=name&key=5296f715fb6ead2ce2a404d6c2e83116&token=' + token)
+      .then(function(res) { return res.json(); })
+      .then(function(cards) {
+        var allItems = [];
+        cards.forEach(function(card) {
+          if (card.checklists) {
+            card.checklists.forEach(function(cl) {
+              cl.checkItems.forEach(function(item) {
+                allItems.push({
+                  id: item.id,
+                  name: item.name,
+                  state: item.state,
+                  cardName: card.name,
+                  checklistId: cl.id
+                });
+              });
+            });
+          }
+        });
+        document.getElementById('loading').style.display = 'none';
+        var container = document.getElementById('items');
+        if (allItems.length === 0) {
+          container.innerHTML = '<p style="color:#888;font-size:13px">אין משימות בבורד זה</p>';
+          return;
         }
-      }];
-    }
+        allItems.forEach(function(item) {
+          var div = document.createElement('div');
+          div.className = 'item';
+          var checked = item.state === 'complete';
+          div.innerHTML = '<input type="checkbox" id="' + item.id + '" ' + (checked ? 'checked' : '') + '>' +
+            '<div><label for="' + item.id + '" class="' + (checked ? 'done' : '') + '">' + item.name + '</label>' +
+            '<div class="card-name">📋 ' + item.cardName + '</div></div>';
+          container.appendChild(div);
+        });
+      });
   });
+}).catch(function(err) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error').textContent = 'שגיאה: ' + err.message;
+});
 </script>
 </body>
 </html>
